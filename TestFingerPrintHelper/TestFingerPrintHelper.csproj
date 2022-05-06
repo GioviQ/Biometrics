@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{F69C8FCE-EACF-456B-BC84-6BD3BD9ACD64}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+	<PlatformTarget>x86</PlatformTarget>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" Version="0.44.0" />
+  </ItemGroup>
+ <ItemGroup>
+   <ProjectReference Include="..\Holtek\FingerPrintHelper\FingerPrintHelperHoltek.csproj" />
+   <ProjectReference Include="..\Lirox\FingerPrintHelper\FingerPrintHelperLirox.csproj" />
+   <ProjectReference Include="..\ZKTeco\FingerPrintHelper\FingerPrintHelperZK.csproj" />
+ </ItemGroup>
+ <ItemGroup>
+   <Compile Update="Properties\Settings.Designer.cs">
+     <DesignTimeSharedInput>True</DesignTimeSharedInput>
+     <AutoGen>True</AutoGen>
+     <DependentUpon>Settings.settings</DependentUpon>
+   </Compile>
+ </ItemGroup>
+ <ItemGroup>
+   <None Update="Properties\Settings.settings">
+     <Generator>SettingsSingleFileGenerator</Generator>
+     <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+   </None>
+ </ItemGroup>
+</Project>

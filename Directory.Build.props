@@ -1,0 +1,6 @@
+<Project>
+ <PropertyGroup>
+    <LangVersion>preview</LangVersion>
+    <Authors>Giovanni Quarella</Authors>
+ </PropertyGroup>
+</Project>
