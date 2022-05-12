@@ -1,20 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>Biometrics</RootNamespace>
-    <TargetFramework>netstandard2.0</TargetFramework>
-	<PlatformTarget>x86</PlatformTarget>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageIcon>icon.png</PackageIcon>
-    <PackageIconUrl />
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\Biometrics\Biometrics.csproj" />
-    <ProjectReference Include="..\FingerPrintSDK\FingerPrintSDK.vcxproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\icon.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-  </ItemGroup>
+	<PropertyGroup>
+		<RootNamespace>Biometrics</RootNamespace>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<PlatformTarget>x86</PlatformTarget>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageIconUrl />
+		<TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\Biometrics\Biometrics.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\icon.png">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Reference Include="FingerPrintSDK">
+	    <HintPath>..\FingerPrintSDK\Win32\Release\FingerPrintSDK.dll</HintPath>
+	  </Reference>
+	</ItemGroup>
+
+	<Target DependsOnTargets="ResolveReferences" Name="CopyProjectReferencesToPackage">
+		<ItemGroup>
+			<BuildOutputInPackage Include="..\FingerPrintSDK\Win32\Release\FingerPrintSDK.dll" />
+		</ItemGroup>
+	</Target>
 </Project>
