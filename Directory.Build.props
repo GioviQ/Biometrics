@@ -1,6 +1,10 @@
 <Project>
  <PropertyGroup>
     <LangVersion>preview</LangVersion>
+	<Version>1.0.1</Version>
     <Authors>Giovanni Quarella</Authors>
+	<RepositoryUrl>https://github.com/GioviQ/Biometrics</RepositoryUrl>
+	<PackageProjectUrl>https://github.com/GioviQ/Biometrics</PackageProjectUrl>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
  </PropertyGroup>
 </Project>

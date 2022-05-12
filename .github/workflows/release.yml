@@ -25,4 +25,4 @@ jobs:
       run: msbuild Biometrics.sln -t:build -verbosity:diag -property:Configuration=Release
     - name: Publish to NuGet.org
       shell: pwsh
-      run: dotnet nuget push ${{ github.workspace }}\*.nupkg --source https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
+      run: dotnet nuget push "**/*.nupkg" --source https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_API_KEY }} --skip-duplicate
