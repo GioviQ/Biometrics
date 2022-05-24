@@ -18,8 +18,6 @@
 		</None>
 	</ItemGroup>
 	<ItemGroup>
-	  <Reference Include="DPUruNet">
-	    <HintPath>C:\Program Files\DigitalPersona\U.are.U SDK\Windows\Lib\.NET\DPUruNet.dll</HintPath>
-	  </Reference>
+	  <PackageReference Include="DPUruNet" Version="1.0.0.1" />
 	</ItemGroup>
 </Project>
