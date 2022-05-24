@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>Biometrics</RootNamespace>
+		<TargetFrameworks>net472;net6.0-windows</TargetFrameworks>
+		<UseWindowsForms>true</UseWindowsForms>
+		<PlatformTarget>x86</PlatformTarget>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageIconUrl />
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\Biometrics\Biometrics.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\icon.png">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+	<ItemGroup>
+	  <Reference Include="DPUruNet">
+	    <HintPath>C:\Program Files\DigitalPersona\U.are.U SDK\Windows\Lib\.NET\DPUruNet.dll</HintPath>
+	  </Reference>
+	</ItemGroup>
+</Project>

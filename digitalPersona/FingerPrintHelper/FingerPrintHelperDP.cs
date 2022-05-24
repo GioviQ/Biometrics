@@ -1,6 +1,6 @@
-﻿using System;
+﻿using DPUruNet;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -9,44 +9,43 @@ using System.Threading.Tasks;
 
 namespace Biometrics
 {
-    public class FingerPrintHelperLirox : IDisposable, IFingerPrintHelper
+    public class FingerPrintHelperDP : IDisposable, IFingerPrintHelper
     {
         public event EventHandler<FingerPrintEventArgs> Notification;
 
         private CancellationTokenSource tokenSource;
         private CancellationToken token;
 
-        private static SemaphoreSlim semaphore;
+        private static SemaphoreSlim semaphore = new SemaphoreSlim(1);
 
+        private Reader currentReader;
         public bool IsConnected { get; private set; }
         public string StorePath { get; set; }
         public string ImportPath { get; set; }
-        public string FileNameModel { get; set; } = "Template-{0}.lr.fpt";
+        public string FileNameModel { get; set; } = "Template-{0}.dp.fpt";
 
-        private const string searchPattern = "*.lr.fpt";
+        private const string searchPattern = "*.dp.fpt";
 
-        private readonly Dictionary<int, byte[]> store = new Dictionary<int, byte[]>();
+        private const int DPFJ_PROBABILITY_ONE = 0x7fffffff;
 
-        private bool IsTimeToDie = false;
+        private readonly Dictionary<int, Fmd> store = new Dictionary<int, Fmd>();
+        private readonly List<Fmd> preenrollmentFmds = new List<Fmd>();
+
         private bool IsRegister = false;
-        private bool IsIdentify = false;
+        private bool toIdentify = true;
 
-        readonly byte[] refbuf = new byte[512];
+        private int RegisterCount = 0;
+        private const int REGISTER_FINGER_COUNT = 4;
 
-        private int matsize = 0;
-        private readonly byte[] matbuf = new byte[256];
 
-        private int refsize = 0;
         private int FingerPrintId = 1;
 
-        private readonly Regex extractIdFromFileNamePattern = new Regex(@"Template-(\d+).lr.fpt");
+        private readonly Regex extractIdFromFileNamePattern = new Regex(@"Template-(\d+).dp.fpt");
 
-        public FingerPrintHelperLirox()
+        public FingerPrintHelperDP()
         {
             tokenSource = new CancellationTokenSource();
             token = tokenSource.Token;
-
-            semaphore = new SemaphoreSlim(1);
         }
 
         protected virtual void RaiseNotification(FingerPrintEventArgs e)
@@ -65,192 +64,214 @@ namespace Biometrics
 
         public void CancelOperation()
         {
+            IsRegister = false;
+            RegisterCount = 0;
+
             if (tokenSource != null)
                 tokenSource.Cancel();
         }
 
-        public Task Start(string deviceConnection = "USB")
+        public async Task Start(string deviceConnection = "USB")
         {
             try
             {
-                fpengine.CloseDevice();
-                if (fpengine.OpenDevice(0, 0, 0) == 1)
+                var readers = ReaderCollection.GetReaders();
+
+                if (readers.Count == 0)
+                    RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionFail, "No finger print scanner detected"));
+                else
                 {
-                    if (fpengine.LinkDevice(0) == 1)
+                    currentReader = readers[0];
+
+                    Constants.ResultCode result = Constants.ResultCode.DP_DEVICE_FAILURE;
+
+                    result = currentReader.Open(Constants.CapturePriority.DP_PRIORITY_COOPERATIVE);
+
+                    if (result != Constants.ResultCode.DP_SUCCESS)
                     {
-                        Thread captureThread = new Thread(new ThreadStart(DoCapture))
-                        {
-                            IsBackground = true
-                        };
-
-                        Restore();
-
-                        captureThread.Start();
-
-                        IsTimeToDie = false;
-
-                        Identify();
-
-                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionSuccess));
+                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionFail, $"Error: {result}"));
                     }
                     else
                     {
-                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionFail));
-                        return Task.CompletedTask;
+                        Restore();
+                        await Import();
+
+                        currentReader.On_Captured += new Reader.CaptureCallback(OnCaptured);
+
+                        GetStatus();
+
+                        Constants.ResultCode captureResult = currentReader.CaptureAsync(Constants.Formats.Fid.ANSI, Constants.CaptureProcessing.DP_IMG_PROC_DEFAULT, currentReader.Capabilities.Resolutions[0]);
+
+                        if (captureResult != Constants.ResultCode.DP_SUCCESS)
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionFail, $"Error: {captureResult}"));
+                        else
+                        {
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionSuccess));
+
+                            var watcher = new FileSystemWatcher(ImportPath);
+
+                            watcher.Changed += Watcher_Changed;
+                        }
                     }
-                }
-                else
-                {
-                    RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionFail));
-                    return Task.CompletedTask;
                 }
             }
             catch (Exception ex)
             {
                 RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ConnectionFail, ex.GetBaseException().Message));
             }
-
-            return Task.CompletedTask;
         }
 
-        private void DoCapture()
+        private void Watcher_Changed(object sender, FileSystemEventArgs e)
         {
-            while (!IsTimeToDie)
+            _ = Import();
+        }
+
+        private void GetStatus()
+        {
+            Constants.ResultCode result = currentReader.GetStatus();
+
+            if (result != Constants.ResultCode.DP_SUCCESS)
             {
-                int wm = fpengine.GetWorkMsg();
-                int rm = fpengine.GetRetMsg();
+                throw new Exception(result.ToString());
+            }
 
-                switch (wm)
+            if (currentReader.Status.Status == Constants.ReaderStatuses.DP_STATUS_BUSY)
+            {
+                Thread.Sleep(50);
+            }
+            else if (currentReader.Status.Status == Constants.ReaderStatuses.DP_STATUS_NEED_CALIBRATION)
+            {
+                currentReader.Calibrate();
+            }
+            else if (currentReader.Status.Status != Constants.ReaderStatuses.DP_STATUS_READY)
+            {
+                throw new Exception($"Reader Status - {currentReader.Status.Status}");
+            }
+        }
+
+        public bool CheckCaptureResult(CaptureResult captureResult)
+        {
+            if (captureResult.Data == null || captureResult.ResultCode != Constants.ResultCode.DP_SUCCESS)
+            {
+                if (captureResult.ResultCode != Constants.ResultCode.DP_SUCCESS)
                 {
-                    case fpengine.FPM_DEVICE:
-                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, "Not Open Device"));
-                        break;
-                    case fpengine.FPM_PLACE:
-                        if (!IsIdentify)
-                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.PutFinger));
-                        else
-                            Debug.WriteLine("Put finger to identify");
-                        break;
-                    case fpengine.FPM_LIFT:
-                        if (!IsIdentify)
-                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.RaiseFinger));
-                        else
-                            Debug.WriteLine("Raise finger to identify");
-                        break;
-                    case fpengine.FPM_CAPTURE:
-                        break;
-                    case fpengine.FPM_ENROLL:
+                    throw new Exception(captureResult.ResultCode.ToString());
+                }
+
+                // Send message if quality shows fake finger
+                if (captureResult.Quality != Constants.CaptureQuality.DP_QUALITY_CANCELED)
+                {
+                    throw new Exception($"Quality - {captureResult.Quality}");
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private void OnCaptured(CaptureResult captureResult)
+        {
+            try
+            {
+                if (CheckCaptureResult(captureResult))
+                {
+                    DataResult<Fmd> resultConversion = FeatureExtraction.CreateFmdFromFid(captureResult.Data, Constants.Formats.Fmd.ANSI);
+
+                    if (resultConversion.ResultCode != Constants.ResultCode.DP_SUCCESS)
+                    {
+                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, resultConversion.ResultCode.ToString()));
+                    }
+                    else if (IsRegister)
+                    {
+                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.RaiseFinger));
+
+                        int fid = StoreIdentify(resultConversion.Data);
+
+                        if (fid >= 0)
                         {
-                            try
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.FingerPrintDuplicate, fid));
+                        }
+                        else
+                        {
+                            RegisterCount++;
+
+                            preenrollmentFmds.Add(resultConversion.Data);
+
+                            if (RegisterCount >= REGISTER_FINGER_COUNT)
                             {
-                                if (rm == 1)
+                                if (!Directory.Exists(StorePath))
+                                    Directory.CreateDirectory(StorePath);
+
+                                DataResult<Fmd> resultEnrollment = Enrollment.CreateEnrollmentFmd(Constants.Formats.Fmd.ANSI, preenrollmentFmds);
+
+                                if (resultEnrollment.ResultCode == Constants.ResultCode.DP_SUCCESS)
                                 {
-                                    fpengine.GetTemplateByEnl(refbuf, ref refsize);
-
-                                    var bytesTosave = new byte[refsize];
-                                    Array.Copy(refbuf, bytesTosave, refsize);
-
-                                    int fid = StoreIdentify(bytesTosave);
-
-                                    if (fid >= 0)
-                                    {
-                                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.FingerPrintDuplicate, fid));
-                                    }
-                                    else
-                                    {
-                                        store.Add(FingerPrintId, bytesTosave);
-
-                                        SaveTemplate(bytesTosave, FingerPrintId);
-
-                                        FingerPrintId++;
-                                    }
+                                    SaveTemplate(resultEnrollment.Data, FingerPrintId);
+                                    FingerPrintId++;
                                 }
                                 else
                                 {
                                     RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, "Enroll fail"));
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ImportError, ex.GetBaseException().Message));
-                            }
 
-                            IsRegister = false;
-                            IsIdentify = true;
+                                preenrollmentFmds.Clear();
 
-                            fpengine.CaptureTemplate();
+                                IsRegister = false;
+
+                                RegisterCount = 0;
+                            }
+                            else
+                                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.PutFinger));
                         }
-                        break;
-                    case fpengine.FPM_GENCHAR:
+                    }
+                    else
+                    {
+                        int fid = StoreIdentify(resultConversion.Data);
+
+                        if (fid >= 0)
                         {
-                            try
-                            {
-                                if (rm == 1)
-                                {
-                                    fpengine.GetTemplateByCap(matbuf, ref matsize);
-
-                                    int fid = StoreIdentify(matbuf);
-
-                                    if (fid >= 0)
-                                    {
-                                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.IdentifySuccess, fid));
-                                    }
-                                    else
-                                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.IdentifyFail));
-                                }
-                                else
-                                {
-                                    RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, "Capture Fail"));
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ImportError, ex.GetBaseException().Message));
-                            }
-
-                            fpengine.CaptureTemplate();
-                        }
-                        break;
-                    case fpengine.FPM_NEWIMAGE:
-                        break;
-                    case fpengine.FPM_TIMEOUT:
-                        Debug.WriteLine("Timeout");
-                        if (IsRegister)
-                        {
-                            fpengine.EnrollTemplate();
-                            IsRegister = false;
-                            IsIdentify = false;
-                            fpengine.SetTimeOut(10);
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.IdentifySuccess, fid));
                         }
                         else
-                        {
-                            IsIdentify = true;
-                            fpengine.CaptureTemplate();
-                        }
-                        break;
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.IdentifyFail));
+                    }
                 }
-
-                Thread.Sleep(200);
-
-                Import(true);
+            }
+            catch (Exception ex)
+            {
+                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, ex.GetBaseException().Message));
             }
         }
 
         public Task Store()
         {
-            IsRegister = true;
+            if (!IsRegister)
+            {
+                preenrollmentFmds.Clear();
 
-            fpengine.SetTimeOut(0);
+                IsRegister = true;
+
+                RegisterCount = 0;
+
+                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.PutFinger));
+            }
 
             return Task.CompletedTask;
         }
 
         public Task Identify()
         {
-            IsRegister = false;
-            IsIdentify = true;
+            if (!toIdentify)
+            {
+                toIdentify = true;
 
-            fpengine.CaptureTemplate();
+                preenrollmentFmds.Clear();
+
+                IsRegister = false;
+
+                RegisterCount = 0;
+            }
 
             return Task.CompletedTask;
         }
@@ -324,20 +345,23 @@ namespace Biometrics
             return Task.FromResult(result);
         }
 
-        private int StoreIdentify(byte[] temp)
+        private int StoreIdentify(Fmd temp)
         {
             int id = -1;
-            int maxScore = 0;
 
-            foreach (var storeItem in store)
+            if (store.Count > 0)
             {
-                int score = fpengine.MatchTemplateOne(temp, storeItem.Value, 512);
+                // See the SDK documentation for an explanation on threshold scores.
+                int thresholdScore = DPFJ_PROBABILITY_ONE * 1 / 100000;
 
-                if (score >= 80)
+                IdentifyResult identifyResult = Comparison.Identify(temp, 0, store.Values, thresholdScore, 1);
+
+                if (identifyResult.ResultCode != Constants.ResultCode.DP_SUCCESS)
                 {
-                    if (score > maxScore)
-                        id = storeItem.Key;
+                    RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, identifyResult.ResultCode.ToString()));
                 }
+                else if (identifyResult.Indexes.Length > 0)
+                    id = store.Keys.ElementAt(identifyResult.Indexes[0][0]);
             }
 
             return id;
@@ -357,9 +381,9 @@ namespace Biometrics
                             return;
                         }
 
-                        var bytes = File.ReadAllBytes(file);
+                        var fmd = Fmd.DeserializeXml(File.ReadAllText(file));
 
-                        int fid = StoreIdentify(bytes);
+                        int fid = StoreIdentify(fmd);
 
                         if (fid >= 0)
                         {
@@ -375,7 +399,7 @@ namespace Biometrics
 
                                 if (!store.ContainsKey(id))
                                 {
-                                    store.Add(id, bytes);
+                                    store.Add(id, fmd);
 
                                     id++;
 
@@ -418,9 +442,9 @@ namespace Biometrics
                             return;
                         }
 
-                        var bytes = File.ReadAllBytes(filePath);
+                        var fmd = Fmd.DeserializeXml(File.ReadAllText(filePath));
 
-                        int fid = StoreIdentify(bytes);
+                        int fid = StoreIdentify(fmd);
 
                         if (fid >= 0)
                         {
@@ -430,9 +454,9 @@ namespace Biometrics
                         {
                             if (!store.ContainsKey(FingerPrintId))
                             {
-                                store.Add(FingerPrintId, bytes);
+                                store.Add(FingerPrintId, fmd);
 
-                                var dest = filePath.Replace(Path.GetFileName(filePath), $"Template-{FingerPrintId}.lr.bak");
+                                var dest = filePath.Replace(Path.GetFileName(filePath), $"Template-{FingerPrintId}.dp.bak");
 
                                 if (StorePath != null)
                                     dest = $@"{StorePath}\{string.Format(FileNameModel, FingerPrintId)}";
@@ -476,13 +500,13 @@ namespace Biometrics
             });
         }
 
-        private void SaveTemplate(byte[] tmp, int tmpN, bool duplicate = false)
+        private void SaveTemplate(Fmd tmp, int tmpN, bool duplicate = false)
         {
             string filename = $@"{StorePath}\{string.Format(FileNameModel, tmpN)}";
 
             try
             {
-                File.WriteAllBytes(filename, tmp);
+                File.WriteAllText(filename, Fmd.SerializeXml(tmp));
             }
             catch (Exception ex)
             {
@@ -506,9 +530,9 @@ namespace Biometrics
                 {
                     tokenSource?.Dispose();
 
-                    IsTimeToDie = true;
-                    Thread.Sleep(1000);
-                    fpengine.CloseDevice();
+                    RegisterCount = 0;
+                    currentReader.CancelCapture();
+                    currentReader.Dispose();
                 }
 
                 disposedValue = true;

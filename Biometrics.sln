@@ -21,6 +21,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lirox", "Lirox", "{3A3550C5
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FingerPrintHelperLirox", "Lirox\FingerPrintHelper\FingerPrintHelperLirox.csproj", "{B887D409-F9BD-4E1D-A01A-DDD7892D4A1C}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FingerPrintHelperDP", "digitalPersona\FingerPrintHelper\FingerPrintHelperDP.csproj", "{B950F9D8-4171-4B26-9327-B1AAAE1F7923}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "digitalPersona", "digitalPersona", "{CA8C2862-C1E0-4664-A0A9-88032738DE53}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -103,6 +107,18 @@ Global
 		{B887D409-F9BD-4E1D-A01A-DDD7892D4A1C}.Release|x64.Build.0 = Release|Any CPU
 		{B887D409-F9BD-4E1D-A01A-DDD7892D4A1C}.Release|x86.ActiveCfg = Release|Any CPU
 		{B887D409-F9BD-4E1D-A01A-DDD7892D4A1C}.Release|x86.Build.0 = Release|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Debug|x64.Build.0 = Debug|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Debug|x86.Build.0 = Debug|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Release|x64.ActiveCfg = Release|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Release|x64.Build.0 = Release|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Release|x86.ActiveCfg = Release|Any CPU
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -112,6 +128,7 @@ Global
 		{20959ECA-12FB-43A3-A00B-EF073D9E9A80} = {89A4A680-DF0B-46E1-A9AD-BA02C2E7A938}
 		{2B6ED4F7-BF34-409F-8367-11B4411FD47F} = {DDDF9798-AEF0-4E7D-9534-0F44787D6786}
 		{B887D409-F9BD-4E1D-A01A-DDD7892D4A1C} = {3A3550C5-658F-4623-90FE-9372355C1B04}
+		{B950F9D8-4171-4B26-9327-B1AAAE1F7923} = {CA8C2862-C1E0-4664-A0A9-88032738DE53}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {1247C411-B2E3-4987-895F-CD698FE29792}

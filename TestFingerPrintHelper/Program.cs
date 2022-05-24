@@ -21,10 +21,11 @@ namespace TestFingerPrintHelper
             table.AddRow("[green]1[/]", "Holtek");
             table.AddRow("[green]2[/]", "ZKTeco");
             table.AddRow("[green]3[/]", "LIROX");
+            table.AddRow("[green]4[/]", "digitalPersona");
 
             AnsiConsole.Write(table);
 
-            while (cki.Key != ConsoleKey.D1 && cki.Key != ConsoleKey.D2 && cki.Key != ConsoleKey.D3)
+            while (cki.Key != ConsoleKey.D1 && cki.Key != ConsoleKey.D2 && cki.Key != ConsoleKey.D3 && cki.Key != ConsoleKey.D4)
             {
                 cki = Console.ReadKey(true);
             }
@@ -41,6 +42,9 @@ namespace TestFingerPrintHelper
                     break;
                 case ConsoleKey.D3:
                     fph = new FingerPrintHelperLirox();
+                    break;
+                case ConsoleKey.D4:
+                    fph = new FingerPrintHelperDP();
                     break;
             }
 

@@ -240,7 +240,7 @@ namespace Biometrics
 
                 Thread.Sleep(200);
 
-                Import(true);
+                _ = Import(true);
             }
         }
 
@@ -506,62 +506,74 @@ namespace Biometrics
             }
         }
 
-        private void Import(bool singleFile = false)
+        private async Task Import(bool singleFile = false)
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(ImportPath) && !Directory.Exists(ImportPath))
-                    Directory.CreateDirectory(ImportPath);
+                await semaphore.WaitAsync();
 
-                if (!string.IsNullOrWhiteSpace(StorePath) && !Directory.Exists(StorePath))
-                    Directory.CreateDirectory(StorePath);
-
-                foreach (var filePath in Directory.GetFiles(ImportPath, searchPattern))
+                try
                 {
-                    if (token.IsCancellationRequested || disposedValue)
-                    {
-                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.OperationCancelled));
-                        return;
-                    }
+                    if (!string.IsNullOrWhiteSpace(ImportPath) && !Directory.Exists(ImportPath))
+                        Directory.CreateDirectory(ImportPath);
 
-                    var bytes = File.ReadAllBytes(filePath);
+                    if (!string.IsNullOrWhiteSpace(StorePath) && !Directory.Exists(StorePath))
+                        Directory.CreateDirectory(StorePath);
 
-                    int fid = 0, score = 0;
-                    int ret = zkfp2.DBIdentify(mDBHandle, bytes, ref fid, ref score);
+                    foreach (var filePath in Directory.GetFiles(ImportPath, searchPattern))
+                    {
+                        if (token.IsCancellationRequested || disposedValue)
+                        {
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.OperationCancelled));
+                            return;
+                        }
 
-                    if (zkfp.ZKFP_ERR_OK == ret)
-                    {
-                        RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.FingerPrintDuplicate, fid));
-                    }
-                    else
-                    {
-                        ret = zkfp2.DBAdd(mDBHandle, FingerPrintId, bytes);
+                        var bytes = File.ReadAllBytes(filePath);
+
+                        int fid = 0, score = 0;
+                        int ret = zkfp2.DBIdentify(mDBHandle, bytes, ref fid, ref score);
 
                         if (zkfp.ZKFP_ERR_OK == ret)
                         {
-                            var dest = filePath.Replace(Path.GetFileName(filePath), $"Template-{FingerPrintId}.zk.bak");
-
-                            if (StorePath != null)
-                                dest = $@"{StorePath}\Template-{FingerPrintId}.zk.fpt";
-
-                            if (File.Exists(dest))
-                                File.Delete(dest);
-
-                            File.Move(filePath, dest);
-
-                            FingerPrintId++;
+                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.FingerPrintDuplicate, fid));
                         }
                         else
-                            RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, GetMsg(ret)));
-                    }
+                        {
+                            ret = zkfp2.DBAdd(mDBHandle, FingerPrintId, bytes);
 
-                    if (singleFile)
-                        return;
+                            if (zkfp.ZKFP_ERR_OK == ret)
+                            {
+                                var dest = filePath.Replace(Path.GetFileName(filePath), $"Template-{FingerPrintId}.zk.bak");
+
+                                if (StorePath != null)
+                                    dest = $@"{StorePath}\{string.Format(FileNameModel, FingerPrintId)}";
+
+                                if (File.Exists(dest))
+                                    File.Delete(dest);
+
+                                File.Move(filePath, dest);
+
+                                FingerPrintId++;
+                            }
+                            else
+                                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.Error, GetMsg(ret)));
+                        }
+
+                        if (singleFile)
+                            return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ImportError, ex.Message));
+                }
+                finally
+                {
+                    semaphore.Release();
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                RaiseNotification(new FingerPrintEventArgs(FingerPrintEvent.ImportError, ex.Message));
             }
         }
 
@@ -569,9 +581,9 @@ namespace Biometrics
         {
             refreshToken();
 
-            return Task.Run(() =>
+            return Task.Run(async () =>
             {
-                Import(false);
+                await Import(false);
             });
         }
 

@@ -10,6 +10,7 @@
     <PackageReference Include="Spectre.Console" Version="0.44.0" />
   </ItemGroup>
  <ItemGroup>
+   <ProjectReference Include="..\digitalPersona\FingerPrintHelper\FingerPrintHelperDP.csproj" />
    <ProjectReference Include="..\Holtek\FingerPrintHelper\FingerPrintHelperHoltek.csproj" />
    <ProjectReference Include="..\Lirox\FingerPrintHelper\FingerPrintHelperLirox.csproj" />
    <ProjectReference Include="..\ZKTeco\FingerPrintHelper\FingerPrintHelperZK.csproj" />
