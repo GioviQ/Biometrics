@@ -207,7 +207,10 @@ namespace Biometrics
 
                                 if (resultEnrollment.ResultCode == Constants.ResultCode.DP_SUCCESS)
                                 {
+                                    store.Add(FingerPrintId, resultEnrollment.Data);
+
                                     SaveTemplate(resultEnrollment.Data, FingerPrintId);
+
                                     FingerPrintId++;
                                 }
                                 else
