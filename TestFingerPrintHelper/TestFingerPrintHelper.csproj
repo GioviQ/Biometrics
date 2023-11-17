@@ -2,12 +2,12 @@
   <PropertyGroup>
     <ProjectGuid>{F69C8FCE-EACF-456B-BC84-6BD3BD9ACD64}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
 	<PlatformTarget>x86</PlatformTarget>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Spectre.Console" Version="0.44.0" />
+    <PackageReference Include="Spectre.Console" Version="0.47.0" />
   </ItemGroup>
  <ItemGroup>
    <ProjectReference Include="..\digitalPersona\FingerPrintHelper\FingerPrintHelperDP.csproj" />
